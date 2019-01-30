@@ -98,9 +98,9 @@ func CountData(jiraClient *jira.Client, name string, year int, wg *sync.WaitGrou
 		if err == nil {
 			retVal.Name = name
 			if idx == 0 {
-				retVal.InReview = len(issues)
-			} else {
 				retVal.Count = len(issues)
+			} else {
+				retVal.InReview = len(issues)
 			}
 		} else {
 			log.Error(strings.Join(jqls, "_"))
