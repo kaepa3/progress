@@ -138,7 +138,7 @@ func editJson(list []Result) string {
 			  "fields":[
 				{{range .Results}}{
 				   "title":"{{.Name}}",
-				   "value":"{{.Count}} issue/` + strconv.Itoa((target)) + `({{.InReaview}}) {{.Count | CountToPersent}}%"
+				   "value":"{{.Count}} issue/` + strconv.Itoa((target)) + `({{.InReview}}) {{.Count | CountToPersent}}%"
 				},{{end}}
 			  ]
 		   }
