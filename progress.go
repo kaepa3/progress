@@ -9,6 +9,7 @@ import (
 	"sync"
 	"text/template"
 	"time"
+        "flag"
 
 	"github.com/BurntSushi/toml"
 	log "github.com/cihub/seelog"
@@ -58,8 +59,9 @@ func initLogger() {
 }
 
 func main() {
+        flag.Parse()
 	initLogger()
-	toml.DecodeFile("./Config.toml", &config)
+	toml.DecodeFile(flag.Arg(0), &config)
 	HttpPost(editJson(getIssues()))
 }
 
