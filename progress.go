@@ -2,14 +2,15 @@ package main
 
 import (
 	"bytes"
+	"flag"
 	"fmt"
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"sync"
 	"text/template"
 	"time"
-        "flag"
 
 	"github.com/BurntSushi/toml"
 	log "github.com/cihub/seelog"
@@ -59,10 +60,11 @@ func initLogger() {
 }
 
 func main() {
-        flag.Parse()
+	flag.Parse()
 	initLogger()
 	toml.DecodeFile(flag.Arg(0), &config)
 	HttpPost(editJson(getIssues()))
+	//editJson(getIssues())
 }
 
 func getIssues() []Result {
@@ -87,16 +89,24 @@ func getIssues() []Result {
 func CountData(jiraClient *jira.Client, name string, year int, wg *sync.WaitGroup) Result {
 
 	//　課題の取得
-	retVal := Result{"", 0}
+	retVal := Result{"", 0, 0}
 	opt := &jira.SearchOptions{MaxResults: 1000}
-	jql := createJql(config.Jql, name, year)
-	issues, _, err := jiraClient.Issue.Search(jql, opt)
-	if err == nil {
-		retVal.Name = name
-		retVal.Count = len(issues)
-	} else {
-		log.Error(jql)
+	jqls := createJql(config.Jql, name, year)
+
+	for idx, jql := range jqls {
+		issues, _, err := jiraClient.Issue.Search(jql, opt)
+		if err == nil {
+			retVal.Name = name
+			if idx == 0 {
+				retVal.InReview = len(issues)
+			} else {
+				retVal.Count = len(issues)
+			}
+		} else {
+			log.Error(strings.Join(jqls, "_"))
+		}
 	}
+
 	return retVal
 }
 
@@ -105,12 +115,15 @@ type TemplateInfomation struct {
 	Results []Result
 }
 type Result struct {
-	Name  string
-	Count int
+	Name     string
+	Count    int
+	InReview int
 }
 
-func createJql(basejql string, name string, year int) string {
-	return fmt.Sprintf(basejql, strconv.Itoa(year)+"/1/1", strconv.Itoa(year+1)+"/01/01", name)
+func createJql(basejql string, name string, year int) []string {
+	return []string{
+		fmt.Sprintf(basejql, strconv.Itoa(year)+"/1/1", strconv.Itoa(year+1)+"/01/01", name),
+		fmt.Sprintf("status = \"In Review\" AND  assignee  = %s", name)}
 }
 
 func editJson(list []Result) string {
@@ -125,7 +138,7 @@ func editJson(list []Result) string {
 			  "fields":[
 				{{range .Results}}{
 				   "title":"{{.Name}}",
-				   "value":"{{.Count}} issue/` + strconv.Itoa((target)) + ` {{.Count | CountToPersent}}%"
+				   "value":"{{.Count}} issue/` + strconv.Itoa((target)) + `({{.InReaview}}) {{.Count | CountToPersent}}%"
 				},{{end}}
 			  ]
 		   }
