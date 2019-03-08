@@ -49,7 +49,14 @@ const (
 func CountToPersent(val int) string {
 	return fmt.Sprintf("%.2f", float32(val)/target*100)
 }
+func MapToString(m map[string]int) string {
+	strAry := make([]string, 0, 20)
+	for k, v := range m {
+		strAry = append(strAry, fmt.Sprintf("%s:%d", k, v))
+	}
+	return strings.Join(strAry, " ")
 
+}
 func initLogger() {
 	logger, err := log.LoggerFromConfigAsBytes([]byte(logConfig))
 	if err != nil {
@@ -89,7 +96,7 @@ func getIssues() []Result {
 func CountData(jiraClient *jira.Client, name string, year int, wg *sync.WaitGroup) Result {
 
 	//　課題の取得
-	retVal := Result{"", 0, 0}
+	retVal := Result{"", 0, 0, make(map[string]int)}
 	opt := &jira.SearchOptions{MaxResults: 1000}
 	jqls := createJql(config.Jql, name, year)
 
@@ -105,9 +112,39 @@ func CountData(jiraClient *jira.Client, name string, year int, wg *sync.WaitGrou
 		} else {
 			log.Error(strings.Join(jqls, "_"))
 		}
+
+		if len(retVal.Status) == 0 {
+			retVal.Status = countIssueStaus(issues)
+		} else {
+			retVal.Status = merge(retVal.Status, countIssueStaus(issues))
+		}
 	}
 
 	return retVal
+}
+func countIssueStaus(issues []jira.Issue) map[string]int {
+
+	counter := make(map[string]int)
+	for _, v := range issues {
+		if _, ok := counter[v.Fields.Type.Name]; ok {
+			counter[v.Fields.Type.Name]++
+		} else {
+			counter[v.Fields.Type.Name] = 1
+		}
+	}
+	return counter
+}
+
+func merge(m1, m2 map[string]int) map[string]int {
+	ans := map[string]int{}
+
+	for k, v := range m1 {
+		ans[k] = v
+	}
+	for k, v := range m2 {
+		ans[k] = v
+	}
+	return (ans)
 }
 
 type TemplateInfomation struct {
@@ -118,6 +155,7 @@ type Result struct {
 	Name     string
 	Count    int
 	InReview int
+	Status   map[string]int
 }
 
 func createJql(basejql string, name string, year int) []string {
@@ -138,7 +176,7 @@ func editJson(list []Result) string {
 			  "fields":[
 				{{range .Results}}{
 				   "title":"{{.Name}}",
-				   "value":"{{.Count}} issue/` + strconv.Itoa((target)) + `({{.InReview}}) {{.Count | CountToPersent}}%"
+				   "value":"{{.Count}} issue/` + strconv.Itoa((target)) + `({{.InReview}}) {{.Count | CountToPersent}}%: {{.Status | MapToString}}"
 				},{{end}}
 			  ]
 		   }
@@ -147,6 +185,7 @@ func editJson(list []Result) string {
 
 	f := template.FuncMap{
 		"CountToPersent": CountToPersent,
+		"MapToString":    MapToString,
 	}
 	tmpl, err := template.New("name").Funcs(f).Parse(text)
 	if err != nil {
