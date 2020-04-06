@@ -90,6 +90,7 @@ func getIssues() []Result {
 		}(jiraClient, name, year, &wg)
 	}
 	wg.Wait()
+
 	return retVal
 }
 
@@ -102,14 +103,20 @@ func CountData(jiraClient *jira.Client, name string, year int, wg *sync.WaitGrou
 
 	for idx, jql := range jqls {
 		issues, _, err := jiraClient.Issue.Search(jql, opt)
+		retVal.Name = name
 		if err == nil {
-			retVal.Name = name
 			if idx == 0 {
 				retVal.Count = len(issues)
 			} else {
 				retVal.InReview = len(issues)
 			}
 		} else {
+
+			if idx == 0 {
+				retVal.Count = 0
+			} else {
+				retVal.InReview = 0
+			}
 			log.Error(strings.Join(jqls, "_"))
 		}
 
@@ -165,6 +172,7 @@ func createJql(basejql string, name string, year int) []string {
 }
 
 func editJson(list []Result) string {
+	fmt.Println(list)
 	log.Info(list)
 	model := TemplateInfomation{time.Now().Format("2006/01/02"), list}
 	text := `{
@@ -195,6 +203,7 @@ func editJson(list []Result) string {
 	buf := bytes.NewBuffer([]byte{})
 	tmpl.Execute(buf, model)
 	result := buf.String()
+	fmt.Println(result)
 	log.Info(result)
 	return result
 }
